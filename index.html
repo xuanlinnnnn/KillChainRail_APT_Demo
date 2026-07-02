@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APT Simulation Framework &mdash; Kill Chain Demo</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="app">
+
+
+  <!-- ================================================
+       HEADER
+       ================================================ -->
+
+  <header>
+    <div class="eyebrow">
+      <span class="live-dot"></span>
+      Red Team Simulation &middot; Safety-Bounded &middot; No Live Payloads &middot; MITRE ATT&amp;CK v15
+    </div>
+
+    <h1 class="page-title">
+      APT Simulation Framework
+      <span class="dim">&mdash; Kill Chain &amp; Detection Evasion</span>
+    </h1>
+
+    <p class="page-sub">
+      A structured methodology for emulating nation-state threat actors &mdash; covering how red teams
+      plan, constrain, and execute advanced persistent threat simulations, and how every evasion
+      finding gets converted into a blue-team detection rather than just a score.
+    </p>
+
+    <div class="meta-row">
+      <span><b>Presenter:</b> Lau Xuan Lin</span>
+      <span><b>Topic:</b> 21 &mdash; APT Simulation &amp; Detection Evasion</span>
+      <span><b>Companion repo:</b> Hunting-tool</span>
+      <span><b>Framework:</b> MITRE ATT&amp;CK v15</span>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-chip"><div class="val">4</div><div class="lbl">Framework Pillars</div></div>
+      <div class="stat-chip"><div class="val">7</div><div class="lbl">Techniques Simulated</div></div>
+      <div class="stat-chip"><div class="val">6</div><div class="lbl">Detections Built</div></div>
+      <div class="stat-chip"><div class="val">0</div><div class="lbl">Live Payloads Used</div></div>
+    </div>
+  </header>
+
+
+  <!-- ================================================
+       SECTION 01 — THE FRAMEWORK
+       ================================================ -->
+
+  <section class="section">
+    <div class="section-label"><span class="num">01</span> The Framework</div>
+    <div class="pillars-grid" id="pillars"></div>
+  </section>
+
+
+  <!-- ================================================
+       SECTION 02 — THE SIMULATION
+       ================================================ -->
+
+  <section class="section">
+    <div class="section-label">
+      <span class="num">02</span>
+      The Simulation &mdash; <span id="stage-counter">Stage 1 of 7</span>
+    </div>
+
+    <div class="rail-controls">
+      <div class="rail-label-group">
+        <div class="rail-heading">Simulated Intrusion Kill Chain</div>
+        <div class="rail-sub">Click any stage node or use the controls below to step through the attack</div>
+      </div>
+
+      <div class="rail-actions">
+        <div class="coverage-group">
+          <span>Kill chain coverage</span>
+          <div class="coverage-track">
+            <div class="coverage-fill" id="coverage-fill"></div>
+          </div>
+          <span class="coverage-pct" id="coverage-pct">14%</span>
+        </div>
+
+        <span class="kbd-hint">
+          <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step &nbsp;&middot;&nbsp; <kbd>Space</kbd> play
+        </span>
+
+        <div class="btn-group">
+          <button class="btn" id="btn-prev" disabled>&larr; Prev</button>
+          <button class="btn btn-play" id="btn-play">&#9654; Play</button>
+          <button class="btn" id="btn-next">Next &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rail-track">
+      <div class="rail-line">
+        <div class="rail-line-progress" id="rail-fill"></div>
+      </div>
+      <div class="rail-nodes" id="rail-nodes"></div>
+    </div>
+
+    <div class="inspector" id="inspector"></div>
+  </section>
+
+
+  <!-- ================================================
+       SECTION 03 — THE OUTCOMES
+       ================================================ -->
+
+  <section class="section hidden" id="section-outcomes">
+    <div class="section-label"><span class="num">03</span> The Outcomes</div>
+    <div class="backlog-box" id="backlog"></div>
+  </section>
+
+
+  <footer>
+    <span>APT Simulation Framework &mdash; LTA Selection Task, Topic 21</span>
+    <span>Detection tooling: <a href="#" onclick="return false;">github.com/&lt;user&gt;/Hunting-tool</a> &middot; MITRE ATT&amp;CK v15</span>
+  </footer>
+
+
+</div><!-- /.app -->
+
+<script src="script.js"></script>
+</body>
+</html>
