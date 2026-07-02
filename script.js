@@ -41,6 +41,7 @@ const PILLARS = [
 
 // Each stage maps one ATT&CK technique to its red/safe/blue/nation columns.
 // activePillars tells the UI which framework pillars to highlight.
+// `plain` is a jargon-free, one-sentence summary for newcomers.
 const STAGES = [
   {
     id: 1,
@@ -51,6 +52,7 @@ const STAGES = [
     evasion: false,
     activePillars: [0, 2],
     apt: "APT28, APT29",
+    plain: "A fake email attachment tricks someone into opening it, giving the attacker their very first foothold on a computer.",
     red: `A simulated adversary delivers a lure document crafted to the target's role — an HR policy PDF with an embedded macro. When opened, it spawns a child shell process and establishes the initial foothold without needing a custom executable.`,
     safe: `Executed in an isolated lab VM with no route to production systems. The macro payload is an inert marker script that writes a log entry only. The lure document is never transmitted outside the lab environment.`,
     blue: `<b>Hunting-tool</b> monitors Office processes spawning <code>cmd.exe</code>, <code>wscript.exe</code>, or <code>powershell.exe</code>. Any <code>WINWORD.EXE</code> &rarr; shell chain is treated as a standalone high-priority alert, regardless of payload content.`,
@@ -66,6 +68,7 @@ const STAGES = [
     evasion: false,
     activePillars: [0],
     apt: "APT29, APT41",
+    plain: "The attacker sets up a hidden task that quietly runs every time the computer starts, so they never lose access.",
     red: `A scheduled task disguised as a routine helper utility is created under a service-account context, set to run at every user logon. It survives reboots and blends in with legitimate Windows maintenance tasks.`,
     safe: `Task creation is confined to the lab VM. The payload is an inert marker script, never a live loader. A signed rollback script reverts every change, and a VM snapshot allows instant clean-state restore.`,
     blue: `Event ID <code>4698</code> (task created) and <code>4702</code> (task modified) are monitored. The detector flags tasks whose name, author, or command path falls outside the known-good baseline — especially those containing encoded or LotL-style payloads.`,
@@ -81,6 +84,7 @@ const STAGES = [
     evasion: false,
     activePillars: [0],
     apt: "APT33, APT41",
+    plain: "The attacker hides a trigger deep inside Windows itself — no file is ever saved to disk, so it's almost invisible.",
     red: `A WMI event filter-to-consumer binding adds a third, harder-to-find persistence path built for long dwell time. It triggers on an OS event and writes nothing to disk, making it invisible to file-based detection entirely.`,
     safe: `WMI objects are created under a labelled test namespace (<code>ROOT\\CIMv2\\Hunting_Lab</code>) and auto-purged when the exercise closes. Sysmon captures every WMI object lifecycle event in real time throughout.`,
     blue: `Sysmon Event IDs <code>19</code>, <code>20</code>, <code>21</code> capture WMI filter, consumer, and binding creation. In this environment any WMI subscription is anomalous — the detector flags the first occurrence as a manual-review priority rather than waiting for a threshold.`,
@@ -96,6 +100,7 @@ const STAGES = [
     evasion: false,
     activePillars: [2],
     apt: "APT28, Lazarus",
+    plain: "Instead of custom hacking tools, the attacker uses PowerShell — a tool already built into Windows — so the activity blends in with normal admin work.",
     red: `Execution pivots to PowerShell with stealth flags (<code>-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass</code>) and a Base64-encoded command, spawned from the document process established in Stage 1 to mimic a real phishing-triggered chain.`,
     safe: `The encoded payload decodes to a benign marker string only. No network connections are opened. Script Block Logging (Event ID <code>4104</code>) captures the full decoded command before execution, giving a complete audit trail.`,
     blue: `The LotL detector flags PowerShell with encoding flags, invisible windows, and anomalous parent processes. An Office process spawning PowerShell is a high-confidence alert on its own — the parent-child chain matters more than the payload content.`,
@@ -111,6 +116,7 @@ const STAGES = [
     evasion: false,
     activePillars: [2],
     apt: "APT1, APT28",
+    plain: "Using stolen login details, the attacker hops from the first infected computer to a second one on the same network.",
     red: `Using credentials gathered from the initial host, the adversary pivots to a second system via the Windows admin share (<code>ADMIN$</code>). A remote service is created on the target — the same mechanism leveraged by PsExec, blending in with legitimate admin tooling.`,
     safe: `Movement is confined to two designated lab hosts in an isolated VLAN. Only pre-staged test credentials are used, never real domain accounts. Every SMB connection is captured at the packet level via a span port.`,
     blue: `Event ID <code>5140</code> (share accessed) combined with <code>4624</code> logon type 3 from an unexpected source. Remote service creation (<code>7045</code>) on the destination is a high-fidelity indicator — PsExec-style lateral movement produces this exact event triplet.`,
@@ -126,6 +132,7 @@ const STAGES = [
     evasion: true,
     activePillars: [1, 3],
     apt: "APT41, Lazarus",
+    plain: "The attacker would try to blind the security software watching the computer — this step is deliberately only discussed, never actually performed.",
     red: `Adversary tradecraft at this stage would target the EDR's telemetry pipeline and the AMSI script-scanning interface — blinding the defender's visibility before executing the next phase of the intrusion.`,
     safe: `<b>Scoped as design and detection-readiness only.</b> No working bypass is built or executed. The specific blind spots these techniques would create are documented and passed to the blue team as a hardening requirement instead.`,
     blue: `The finding generates two backlog items: EDR self-health and tamper alerting, and AMSI-bypass signature research. Absence of telemetry during a known-active session is itself a detection signal — <b>silence can be the alert.</b>`,
@@ -141,6 +148,7 @@ const STAGES = [
     evasion: false,
     activePillars: [3],
     apt: "APT32, APT41",
+    plain: "The attacker fakes a file's creation date so it looks like it has always been there, hiding it from investigators.",
     red: `To blend a dropped file in with legitimate system files, its creation and modified timestamps are backdated to match neighbouring OS files — an anti-forensics technique designed to defeat filesystem timeline analysis during incident response.`,
     safe: `Only synthetic test files inside the lab VM are ever timestomped. Production timestamps are never touched. Every change is logged to a separate audit file before execution, and the test file is deleted at exercise close.`,
     blue: `<b>Hunting-tool</b> flags two anomalies: (1) files where <code>$STANDARD_INFORMATION</code> and <code>$FILE_NAME</code> MFT attributes diverge — a reliable timestomp signature — and (2) files sharing an improbable count of identical timestamps with unrelated system files.`,
@@ -158,6 +166,46 @@ const BACKLOG = [
   { status: "closed", title: "Timestomp anomaly detection",                note: "T1070.006 — Hunting-tool/detectors/timestomp.py"    },
   { status: "open",   title: "EDR tamper-alerting & AMSI bypass research", note: "T1562 / T1027 — open by design: a genuine gap, not a fabricated fix" }
 ];
+
+// Plain-English glossary. Keys are matched as whole words/phrases inside
+// stage text (case-insensitive) and turned into hover/focus tooltips.
+const TERMS = {
+  "MITRE ATT&CK":  "A public knowledge base that catalogs real-world attacker techniques, giving defenders a shared vocabulary (like a technique ID) to describe exactly what happened.",
+  "APT":           "Advanced Persistent Threat — a well-resourced attacker, often nation-state backed, that breaks in and stays hidden for a long time rather than smash-and-grab.",
+  "EDR":           "Endpoint Detection & Response — security software on a computer that watches behavior in real time, far more advanced than traditional antivirus.",
+  "AMSI":          "Antimalware Scan Interface — a Windows feature that lets security tools inspect scripts right before they run, catching malicious code even if it's disguised.",
+  "WMI":           "Windows Management Instrumentation — a built-in Windows feature for automating the OS. Attackers abuse it because it's trusted and rarely monitored.",
+  "PowerShell":    "A powerful scripting tool built into every Windows machine. Attackers love it because it's already installed and can do almost anything.",
+  "PsExec":        "A legitimate Microsoft admin tool for running commands on remote computers — attackers mimic its behavior to move between machines unnoticed.",
+  "Sysmon":        "A free Microsoft tool that logs detailed system activity (process creation, network connections, file changes) — a backbone of most detection engineering.",
+  "VLAN":          "Virtual LAN — a way to split one physical network into isolated segments, so lab traffic can never reach production systems.",
+  "dwell time":    "How long an attacker stays inside a network undetected before defenders find them. Nation-state actors often measure this in weeks or months.",
+  "lateral movement": "Once inside one computer, the attacker moves sideways to other machines on the same network to reach their real target.",
+  "spearphishing": "A targeted, personalized phishing email aimed at one specific person or organization — not a mass, generic campaign.",
+  "Rules of Engagement": "The written agreement defining exactly what a red team is and isn't allowed to touch before a simulated attack begins.",
+  "kill chain":    "The step-by-step sequence an attacker follows, from first breaking in to achieving their final goal.",
+  "MFT":           "Master File Table — the index NTFS uses to track every file. It keeps two separate timestamp records, which is what makes timestomping detectable.",
+  "SMB":           "Server Message Block — the protocol Windows uses to share files and folders over a network. Attackers reuse it to hop between machines.",
+};
+
+const TERM_KEYS = Object.keys(TERMS).sort((a, b) => b.length - a.length);
+const TERM_REGEX = new RegExp(
+  '\\b(' + TERM_KEYS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b',
+  'g'
+);
+
+// Wraps known glossary terms in hoverable/focusable tooltip spans, without
+// touching text that's actually inside an HTML tag (e.g. class names).
+function glossify(html) {
+  return html.split(/(<[^>]+>)/g).map(token => {
+    if (token.startsWith('<')) return token;
+    return token.replace(TERM_REGEX, (match) => {
+      const key = TERM_KEYS.find(k => k.toLowerCase() === match.toLowerCase());
+      const def = TERMS[key].replace(/"/g, '&quot;');
+      return `<span class="term" tabindex="0" data-tip="${def}">${match}</span>`;
+    });
+  }).join('');
+}
 
 
 /* ============================================================
@@ -192,7 +240,7 @@ const btnNext      = document.getElementById('btn-next');
 
 function buildPillars() {
   pillarsEl.innerHTML = PILLARS.map((p, i) => `
-    <div class="pillar" data-idx="${i}">
+    <div class="pillar" data-idx="${i}" style="--d:${i}">
       <div class="pillar-icon">${p.icon}</div>
       <div class="pillar-num">PILLAR ${p.num}</div>
       <div class="pillar-name">${p.name}</div>
@@ -270,6 +318,7 @@ function renderInspector() {
           ${s.evasion ? ' &mdash; Conceptual only' : ''}
         </div>
         <div class="insp-name">${s.name}</div>
+        <div class="insp-plain">${s.plain}</div>
       </div>
       <div class="chip-row">
         <div class="chip chip-green">${s.mitre}</div>
@@ -282,22 +331,27 @@ function renderInspector() {
     <div class="insp-cols">
       <div class="col col-red">
         <div class="col-head"><span class="swatch"></span>Red Team Action</div>
-        <div class="col-body">${s.red}</div>
+        <div class="col-body">${glossify(s.red)}</div>
       </div>
       <div class="col col-safe">
         <div class="col-head"><span class="swatch"></span>Safety Control Applied</div>
-        <div class="col-body">${s.safe}</div>
+        <div class="col-body">${glossify(s.safe)}</div>
       </div>
       <div class="col col-blue">
         <div class="col-head"><span class="swatch"></span>Blue Team Detection</div>
-        <div class="col-body">${s.blue}${badge}</div>
+        <div class="col-body">${glossify(s.blue)}${badge}</div>
       </div>
       <div class="col col-nation">
         <div class="col-head"><span class="swatch"></span>Nation-State Context</div>
-        <div class="col-body">${s.nation}</div>
+        <div class="col-body">${glossify(s.nation)}</div>
       </div>
     </div>
   `;
+
+  // force the entrance animation to replay on every stage change
+  inspectorEl.classList.remove('enter');
+  void inspectorEl.offsetWidth;
+  inspectorEl.classList.add('enter');
 }
 
 function renderOutcomes() {
@@ -380,7 +434,7 @@ function startAutoPlay() {
 
 
 /* ============================================================
-   Event listeners
+   Event listeners — rail
    ============================================================ */
 
 btnPrev.addEventListener('click', () => { stopAutoPlay(); goTo(currentStage - 1); });
@@ -391,10 +445,228 @@ btnPlay.addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'BUTTON') return;
+  if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
   if (e.key === 'ArrowRight') { stopAutoPlay(); goTo(currentStage + 1); }
   if (e.key === 'ArrowLeft')  { stopAutoPlay(); goTo(currentStage - 1); }
   if (e.key === ' ')          { e.preventDefault(); autoPlayTimer ? stopAutoPlay() : startAutoPlay(); }
+});
+
+
+/* ============================================================
+   Entrance animations — scroll reveal + counting stats
+   ============================================================ */
+
+function initScrollReveal() {
+  const targets = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window) || targets.length === 0) {
+    targets.forEach(t => t.classList.add('in-view'));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  targets.forEach(t => io.observe(t));
+}
+
+function initStatCounters() {
+  document.querySelectorAll('.stat-chip .val').forEach((el, i) => {
+    const target = parseInt(el.dataset.count, 10) || 0;
+    const duration = 900;
+    const startDelay = 300 + i * 120;
+    setTimeout(() => {
+      const start = performance.now();
+      function tick(now) {
+        const p = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(eased * target);
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }, startDelay);
+  });
+}
+
+
+/* ============================================================
+   SOC Assistant — instant, rule-based answers sourced entirely
+   from the data already on this page. No network calls, no API
+   key, nothing to leak — just a fast lookup over PILLARS/STAGES/
+   TERMS plus a small set of FAQ patterns.
+   ============================================================ */
+
+const assistantEl      = document.getElementById('assistant');
+const fabEl             = document.getElementById('assistant-fab');
+const panelEl           = document.getElementById('assistant-panel');
+const closeEl            = document.getElementById('assistant-close');
+const messagesEl        = document.getElementById('assistant-messages');
+const chipsEl            = document.getElementById('assistant-chips');
+const formEl             = document.getElementById('assistant-form');
+const inputEl            = document.getElementById('assistant-input');
+
+const STARTER_CHIPS = [
+  "What is AMSI?",
+  "Explain timestomping",
+  "Is this actually dangerous?",
+  "What is Hunting-tool?"
+];
+
+let assistantOpened = false;
+
+function addMessage(role, html) {
+  const row = document.createElement('div');
+  row.className = `msg msg-${role}`;
+  row.innerHTML = `<div class="msg-bubble">${html}</div>`;
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return row;
+}
+
+function showTyping() {
+  const row = document.createElement('div');
+  row.className = 'msg msg-bot msg-typing';
+  row.innerHTML = `<div class="msg-bubble typing-dots"><span></span><span></span><span></span></div>`;
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return row;
+}
+
+function renderChips(list) {
+  chipsEl.innerHTML = list.map(q => `<button type="button" class="chat-chip">${q}</button>`).join('');
+  chipsEl.querySelectorAll('.chat-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      inputEl.value = btn.textContent;
+      formEl.requestSubmit();
+    });
+  });
+  // chips sit outside the scrollable message list, so their own height
+  // change can leave the latest message's tail (e.g. a "Jump" button)
+  // just below the fold — re-settle the scroll after layout catches up.
+  requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
+}
+
+function findStage(q) {
+  return STAGES.find(s =>
+    q.includes(s.mitre.toLowerCase()) ||
+    q.includes(s.name.toLowerCase()) ||
+    q.includes(s.short.toLowerCase()) ||
+    s.short.toLowerCase().split(/[\s.]+/).some(w => w.length > 3 && q.includes(w)) ||
+    s.name.toLowerCase().split(/[\s.]+/).some(w => w.length > 5 && q.includes(w))
+  );
+}
+
+function findTerm(q) {
+  const key = TERM_KEYS.find(t => q.includes(t.toLowerCase()));
+  return key ? { key, def: TERMS[key] } : null;
+}
+
+function findPillar(q) {
+  return PILLARS.find(p => p.name.toLowerCase().split(/[\s&/-]+/).some(w => w.length > 4 && q.includes(w)));
+}
+
+function answerQuery(raw) {
+  const q = raw.toLowerCase().trim();
+  if (!q) return "Ask me anything about the simulation — try a stage name, a MITRE ID, or a term like “AMSI”.";
+
+  if (/^(hi|hello|hey|yo|sup)\b/.test(q)) {
+    return "Hey! I can explain any stage, technique, or term on this page. Try “what is timestomping” or “explain stage 6”.";
+  }
+  if (/thank/.test(q)) {
+    return "Anytime — click through the kill chain above if you want to see it in action.";
+  }
+  if (/(what is this|what.?s this (page|site|demo)|explain this (page|demo))/.test(q)) {
+    return "This is an interactive walkthrough of a simulated APT (nation-state style) intrusion — 7 real attacker techniques, each shown safely and paired with the actual detection built to catch it.";
+  }
+  if (/(who (made|built|presented|is the presenter))/.test(q)) {
+    return "Built and presented by Lau Xuan Lin for LTA Selection Task, Topic 21 — APT Simulation &amp; Detection Evasion.";
+  }
+  if (/hunting.?tool/.test(q)) {
+    return "Hunting-tool is the companion detection-engineering repo — every “closed” ticket in the Outcomes section is a real detector living there. <a href=\"https://xuanlinnnnn.github.io/Hunting-tool/\" target=\"_blank\" rel=\"noopener\">Open it →</a>";
+  }
+  if (/(real|actually hack|dangerous|live payload|malware|is this safe)/.test(q)) {
+    return "No live payloads, ever. Every technique here only ran against an isolated lab VM using inert marker scripts — check the “Safety Control Applied” column on any stage for the specifics.";
+  }
+  if (/(how (do i|to) use|how does (it|this) work|instructions)/.test(q)) {
+    return "Click any dot on the timeline, or use ← → and Space to step through / auto-play. Each stage opens a 4-column breakdown: what the attacker did, how it was made safe, how it's detected, and which real APT group has used it.";
+  }
+  if (/mitre/.test(q)) {
+    return TERMS["MITRE ATT&CK"] + " Every stage here is tagged with its official technique ID (e.g. T1566.001).";
+  }
+  if (/(pillar|framework)/.test(q) && !findStage(q)) {
+    return "The framework rests on 4 pillars: Scoping &amp; Rules of Engagement, the Realism-vs-Safety trade-off, Operational Security Discipline, and turning findings into hardened tooling. See Section 01 above.";
+  }
+
+  const stageHit = findStage(q);
+  if (stageHit) {
+    const idx = stageHit.id - 1;
+    return `<b>${stageHit.name}</b> (${stageHit.mitre}, Stage ${stageHit.id} of 7) &mdash; ${stageHit.plain} Real-world groups seen using it: ${stageHit.apt}.<br><button type="button" class="chat-jump" data-stage="${idx}">Jump to this stage →</button>`;
+  }
+
+  const termHit = findTerm(q);
+  if (termHit) return `<b>${termHit.key}</b>: ${termHit.def}`;
+
+  const pillarHit = findPillar(q);
+  if (pillarHit) return `<b>${pillarHit.name}</b>: ${pillarHit.desc}`;
+
+  return "I don't have an exact answer for that. Try a stage name (“WMI”, “timestomping”), a term (“what is EDR”), or one of the quick questions below.";
+}
+
+function handleAssistantSubmit(e) {
+  e.preventDefault();
+  const text = inputEl.value.trim();
+  if (!text) return;
+  addMessage('user', text.replace(/[<>]/g, m => m === '<' ? '&lt;' : '&gt;'));
+  inputEl.value = '';
+  chipsEl.innerHTML = '';
+
+  const typingRow = showTyping();
+  const delay = 420 + Math.random() * 380;
+  setTimeout(() => {
+    typingRow.remove();
+    addMessage('bot', answerQuery(text));
+    renderChips(STARTER_CHIPS);
+  }, delay);
+}
+
+function openAssistant() {
+  panelEl.classList.remove('hidden');
+  fabEl.classList.add('is-open');
+  fabEl.setAttribute('aria-expanded', 'true');
+  if (!assistantOpened) {
+    assistantOpened = true;
+    addMessage('bot', "Hi, I'm the SOC Assistant — ask me about any stage, MITRE ID, or term on this page (e.g. “what is AMSI”) and I'll answer instantly from the page's own data.");
+    renderChips(STARTER_CHIPS);
+  }
+  setTimeout(() => inputEl.focus(), 250);
+}
+
+function closeAssistant() {
+  panelEl.classList.add('hidden');
+  fabEl.classList.remove('is-open');
+  fabEl.setAttribute('aria-expanded', 'false');
+}
+
+fabEl.addEventListener('click', () => {
+  panelEl.classList.contains('hidden') ? openAssistant() : closeAssistant();
+});
+closeEl.addEventListener('click', closeAssistant);
+formEl.addEventListener('submit', handleAssistantSubmit);
+
+messagesEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.chat-jump');
+  if (!btn) return;
+  stopAutoPlay();
+  goTo(parseInt(btn.dataset.stage, 10));
+  document.getElementById('inspector').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  closeAssistant();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !panelEl.classList.contains('hidden')) closeAssistant();
 });
 
 
@@ -405,3 +677,5 @@ document.addEventListener('keydown', e => {
 buildPillars();
 buildRailNodes();
 goTo(0);
+initScrollReveal();
+initStatCounters();
